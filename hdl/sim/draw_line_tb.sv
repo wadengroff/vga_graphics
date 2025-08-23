@@ -59,10 +59,10 @@ end
 
 initial begin
 
-    start_x_tb <= 0;
-    start_y_tb <= 0;
+    start_x_tb <= 28;
+    start_y_tb <= 7;
     x_length_tb <= 20;
-    y_length_tb <= 30;
+    y_length_tb <= 17;
     @(posedge clk_tb);
     start_line_tb <= 1;
     @(posedge clk_tb);
@@ -74,7 +74,7 @@ initial begin
     start_x_tb <= 12;
     start_y_tb <= 15;
     x_length_tb <= 10;
-    y_length_tb <= {1'b1, 7'd4};
+    y_length_tb <= -4;
     start_line_tb <= 1;
     @(posedge clk_tb);
     start_line_tb <= 0;

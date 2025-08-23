@@ -77,34 +77,36 @@ def make_line_ideal_compare(start ,x_length, y_length):
         slope = bc.from_fixed(bc.to_fixed(y_length/x_length,10,5),5)
 
 
-    x_added = 0
-    y_added = 0
+    x_max = min(x + x_length, 160)
 
-    #x_ideal = 0
-    x_diff = 0
-    y_ideal = 0
+    if neg_slope:
+        y_max = max(y + y_length, 0)
+    else:
+        y_max = min(y + y_length, 120)
+
+    # Initialize y_ideal to y
+    y_ideal = y
 
     x_coords = []
     y_coords = []
 
 
-    while x_added != x_length or y_added != y_length:
+    while x != x_max or y != y_max:
         x_coords.append(int(x))
         y_coords.append(int(y))
 
+        y_ideal_fixed = bc.to_fixed(y_ideal,12,5)
+        y_ideal_int = bc.bitstring_to_int(y_ideal_fixed[0:7])
         
-        if (y_ideal - y_added >  0): # Easy to check (just look at MSB of subtraction)
-            y_added += 1
+        if (y_ideal_int != y):
             y = y+1 if not neg_slope else y-1
-        elif (x_diff):
-            x_diff = 0
-            x_added += 1
-            x += 1
         else:
             # The x and y values have reached the next ideal point
             # So now we increment the ideal one by 1 on x axis
-            x_diff = 1
-            y_ideal += slope
+            if x != x_max:
+                x += 1
+            if y != y_max:
+                y_ideal += slope
 
     return np.array([x_coords, y_coords])
         
