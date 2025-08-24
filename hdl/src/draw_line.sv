@@ -85,7 +85,7 @@ always_ff @(posedge clk) begin
     // = 2^5 * (y_length/x_length)
     // if treating as S8.6 => dividing by 2^5, so give proper result
 
-    zero_check_pipe0 <= (y_length == 0) ? 1 : 0;
+    zero_check_pipe0 <= (x_length == 0) ? 1 : 0;
 
     x_max_pipe0    <= start_x_pos + x_length;
     y_max_pipe0 <= {1'b0, start_y_pos} + y_length;
@@ -107,7 +107,7 @@ always_ff @(posedge clk) begin
 
 
     //x_length_pipe0 <= x_length; DON'T NEED ANYMORE
-    //y_length_pipe0 <= y_length[6:0]; // length is 7, with one sign bit
+    y_length_pipe0 <= y_length; // length S8
     start_line_pipe0 <= start_line;
 
 
@@ -165,6 +165,7 @@ logic [13:0] y_difference;
 // increment logic
 logic inc_y_reg, inc_x_reg, inc_ideal_reg;
 
+logic invalid_pixel_reg, invalid_pixel_s;
 
 logic x_diff_reg;
 
@@ -222,12 +223,12 @@ always_ff @(posedge clk) begin
 
             wr_valid_reg <= 1;
 
-            if (x_pos_out_reg == x_max_reg && y_pos_out_reg == y_max_reg) begin
+            if (invalid_pixel_reg || (x_pos_out_reg == x_max_reg && y_pos_out_reg == y_max_reg)) begin
             
                 line_state_reg <= IDLE;
             
             end else begin
-                if (y_pos_out_reg == y_ideal_reg[12:6]) begin
+                if (slope_reg != 0 && y_pos_out_reg != y_ideal_reg[12:6]) begin
 
                     y_pos_out_reg <= y_pos_out_reg + y_add_value_reg;
                 
@@ -241,78 +242,30 @@ always_ff @(posedge clk) begin
                     end
                 
                 end
-
             end
         end
-
-        // // This state is needed to allow for the increment logic to be performed and registered
-        // CHECK_EXIT : begin
-        //     if (x_added_reg >= x_length_reg && y_added_reg >= y_length_reg) begin
-        //         line_state_reg <= IDLE;
-        //     end else begin
-        //         line_state_reg <= DO_ADD;
-        //     end
-        // end
-
-        // DO_ADD : begin
-        //     // write this cycle
-        //     line_state_reg <= CHECK_EXIT;
-
-        //     if (inc_y_reg) begin
-        //         wr_valid_reg <= 1;
-        //         y_added_reg <= y_added_reg + 1;
-        //         y_pos_out_reg <= y_pos_out_reg + y_add_value_reg;
-        //     end
-
-        //     if (inc_x_reg) begin
-        //         wr_valid_reg <= 1;
-        //         x_diff_reg <= 0;
-        //         x_added_reg <= x_added_reg + 1;
-        //         x_pos_out_reg <= x_pos_out_reg + 1;
-        //     end
-
-        //     if (inc_ideal_reg) begin
-        //         x_diff_reg <= 1;
-        //         y_ideal_reg <= y_ideal_reg + slope_reg;
-        //     end
-        // end
 
         default : begin
             line_state_reg <= IDLE;
         end
     endcase
 
+end
+
+assign invalid_pixel_s = (x_pos_out_reg > VGA_WIDTH_C-1) || (y_pos_out_reg > VGA_HEIGHT_C-1);
+
+always_ff @(posedge clk) begin
+    // If the position is out of bounds, stop the draw
+    // logic is outside of other main logic to avoid long crit path
+    invalid_pixel_reg <= invalid_pixel_s;
 
 end
 
 
-//////////////////////////////////////////////////////////////////////////
-// combinationally get difference to pass through rest of inc logic
-// y ideal is 14 bits (U8.5)
-// y added is 7  bits (U7)
-//      => need to add one MSb, 5 LSb to match size
-// assign y_difference = y_ideal_reg - {1'b0, y_added_reg, 5'b00000};
-
-// // increment logic for line drawing
-// always_ff @(posedge clk) begin
-//     if (y_difference[12] == 0) begin
-//         inc_y_reg = 1;
-//         inc_x_reg = 0;
-//         inc_ideal_reg = 0;
-//     end else if (x_diff_reg) begin
-//         inc_y_reg = 0;
-//         inc_x_reg = 1;
-//         inc_ideal_reg = 0;
-//     end else begin
-//         inc_y_reg = 0;
-//         inc_x_reg = 0;
-//         inc_ideal_reg = 1;
-//     end
-// end
 
 
 // Assign output values
-assign wr_valid = wr_valid_reg;
+assign wr_valid = (invalid_pixel_s || invalid_pixel_reg) ? 0 : wr_valid_reg;
 assign write_x_pos = x_pos_out_reg;
 assign write_y_pos = y_pos_out_reg;
 assign running = (line_state_reg == WRITE_PIXELS);
